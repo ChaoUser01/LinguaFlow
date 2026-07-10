@@ -19,7 +19,6 @@ export const useDeckStore = create<DeckState>()(
     (set) => ({
       decks: [],
       addDeck: (deckData) => set((state) => {
-        if (state.decks.length >= 5) return state; // Hard cap at 5
         return {
           decks: [...state.decks, { ...deckData, id: Date.now().toString() }]
         };

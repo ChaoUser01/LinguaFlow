@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { supabase } from '../services/supabase';
 import { useAuthStore } from '../store/useAuthStore';
-import { User, Lock, Image as ImageIcon, Key } from 'lucide-react';
+import { useDataStore } from '../store/useDataStore';
+import { User, Lock, Image as ImageIcon, Target } from 'lucide-react';
 
 const AVATARS = [
   'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
@@ -30,7 +31,8 @@ export const Settings: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
   
-  const [groqKey, setGroqKey] = useState(localStorage.getItem('lingua_groq_key') || '');
+  const { profile, updateDailyGoal } = useDataStore();
+  const [dailyGoal, setDailyGoal] = useState(profile?.daily_goal_minutes?.toString() || '60');
 
   const handleUpdateProfile = async () => {
     setLoading(true);
@@ -71,64 +73,64 @@ export const Settings: React.FC = () => {
     setLoading(false);
   };
 
-  const handleSaveAPIKey = () => {
-    localStorage.setItem('lingua_groq_key', groqKey.trim());
-    setMessage({ text: 'API Key saved locally for AI generation!', type: 'success' });
+  const handleSaveDailyGoal = async () => {
+    setLoading(true);
+    setMessage({ text: '', type: '' });
+    try {
+      const goal = parseInt(dailyGoal, 10);
+      if (isNaN(goal) || goal <= 0) throw new Error("Please enter a valid number of minutes.");
+      if (user) {
+        await updateDailyGoal(user.id, goal);
+        setMessage({ text: 'Daily study goal updated!', type: 'success' });
+      }
+    } catch (err: any) {
+      setMessage({ text: err.message, type: 'error' });
+    }
+    setLoading(false);
   };
 
   return (
-    <div className="flex-col gap-6 animate-fade-in" style={{ maxWidth: '600px' }}>
-      <h1 className="h2 mb-4">Account Settings</h1>
+    <div className="max-w-3xl mx-auto flex flex-col gap-8 transition-all pb-12 mt-8">
+      <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 mb-2">Account Settings</h1>
       
       {message.text && (
-        <div style={{ 
-          padding: '16px', 
-          borderRadius: '8px', 
-          backgroundColor: message.type === 'error' ? '#FEE2E2' : '#D1FAE5',
-          color: message.type === 'error' ? '#DC2626' : '#059669',
-          fontWeight: '500'
-        }}>
+        <div className={`p-4 rounded-2xl border font-bold text-sm shadow-sm ${message.type === 'error' ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
           {message.text}
         </div>
       )}
 
       {/* Profile Settings */}
-      <div className="card flex-col gap-6" style={{ animationDelay: '0.1s' }}>
-        <h2 className="h3 flex items-center gap-2"><User size={20} /> Profile Information</h2>
+      <div className="bg-white rounded-3xl p-8 md:p-10 border border-slate-200 shadow-sm flex flex-col gap-8 transition-all">
+        <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3"><User size={28} className="text-indigo-600" /> Profile Information</h2>
         
         <div>
-          <label className="text-secondary font-medium" style={{ display: 'block', marginBottom: '8px' }}>Username</label>
+          <label className="block mb-2 text-slate-500 font-bold text-xs uppercase tracking-widest">Username</label>
           <input 
             type="text" 
-            className="input" 
+            className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 font-medium focus:outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 transition-all" 
             value={username} 
             onChange={(e) => setUsername(e.target.value)} 
           />
         </div>
 
         <div>
-          <label className="text-secondary font-medium" style={{ display: 'block', marginBottom: '8px' }}>Avatar</label>
-          <div className="flex gap-4 items-center mb-4 flex-wrap">
+          <label className="block mb-4 text-slate-500 font-bold text-xs uppercase tracking-widest">Avatar</label>
+          <div className="flex gap-4 items-center mb-6 flex-wrap">
             {AVATARS.map((url) => (
               <img 
                 key={url}
                 src={url} 
-                className="hover-scale"
+                className={`w-16 h-16 rounded-full cursor-pointer transition-all hover:scale-110 hover:-translate-y-1 hover:shadow-md bg-slate-50 ${avatarUrl === url ? 'ring-4 ring-indigo-600 ring-offset-2' : 'border border-slate-200'}`}
                 alt="Avatar option"
                 onClick={() => setAvatarUrl(url)}
-                style={{ 
-                  width: '60px', height: '60px', borderRadius: '50%', cursor: 'pointer',
-                  border: avatarUrl === url ? '4px solid #6366f1' : '4px solid transparent',
-                  backgroundColor: '#F8FAFC'
-                }}
               />
             ))}
           </div>
-          <div className="flex items-center gap-2">
-            <ImageIcon size={18} className="text-secondary" />
+          <div className="relative mt-2">
+            <ImageIcon size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
             <input 
               type="text" 
-              className="input" 
+              className="w-full pl-12 pr-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 font-medium focus:outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 transition-all" 
               placeholder="Or paste an image URL here..." 
               value={avatarUrl} 
               onChange={(e) => setAvatarUrl(e.target.value)} 
@@ -136,51 +138,67 @@ export const Settings: React.FC = () => {
           </div>
         </div>
 
-        <button className="btn btn-dark w-full" onClick={handleUpdateProfile} disabled={loading}>
+        <button 
+          className="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer" 
+          onClick={handleUpdateProfile} 
+          disabled={loading}
+        >
           {loading ? 'Saving...' : 'Save Profile'}
         </button>
       </div>
 
       {/* Security Settings */}
-      <div className="card flex-col gap-6">
-        <h2 className="h3 flex items-center gap-2"><Lock size={20} /> Security</h2>
+      <div className="bg-white rounded-3xl p-8 md:p-10 border border-slate-200 shadow-sm flex flex-col gap-8 transition-all">
+        <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3"><Lock size={28} className="text-indigo-600" /> Security</h2>
         
         <div>
-          <label className="text-secondary font-medium" style={{ display: 'block', marginBottom: '8px' }}>New Password</label>
+          <label className="block mb-2 text-slate-500 font-bold text-xs uppercase tracking-widest">New Password</label>
           <input 
             type="password" 
-            className="input" 
+            className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 font-medium focus:outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 transition-all" 
             placeholder="Leave blank to keep current password"
             value={password} 
             onChange={(e) => setPassword(e.target.value)} 
           />
         </div>
 
-        <button className="btn w-full" style={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', color: '#0F172A', fontWeight: 'bold' }} onClick={handleUpdatePassword} disabled={loading}>
+        <button 
+          className="w-full bg-white text-slate-900 border border-slate-200 font-bold py-4 rounded-2xl shadow-sm hover:bg-slate-50 transition-all disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer" 
+          onClick={handleUpdatePassword} 
+          disabled={loading}
+        >
           {loading ? 'Updating...' : 'Update Password'}
         </button>
       </div>
 
-      {/* API Key Settings */}
-      <div className="card flex-col gap-6">
-        <h2 className="h3 flex items-center gap-2"><Key size={20} /> AI Features (BYOK)</h2>
-        <p className="text-secondary text-sm">
-          LinguaFlow uses a "Bring Your Own Key" architecture to power crowdsourced AI generations without expensive server costs.
-        </p>
+      {/* Study Preferences */}
+      <div className="bg-white rounded-3xl p-8 md:p-10 border border-slate-200 shadow-sm flex flex-col gap-8 transition-all">
+        <div>
+          <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3 mb-3"><Target size={28} className="text-indigo-600" /> Study Preferences</h2>
+          <p className="text-slate-500 font-medium leading-relaxed">
+            Set your daily study goal. We'll track your time and help you stay on target!
+          </p>
+        </div>
         
         <div>
-          <label className="text-secondary font-medium" style={{ display: 'block', marginBottom: '8px' }}>Groq API Key (Llama-3)</label>
+          <label className="block mb-2 text-slate-500 font-bold text-xs uppercase tracking-widest">Daily Goal (Minutes)</label>
           <input 
-            type="password" 
-            className="input" 
-            placeholder="gsk_..."
-            value={groqKey} 
-            onChange={(e) => setGroqKey(e.target.value)} 
+            type="number" 
+            className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 font-medium focus:outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 transition-all" 
+            placeholder="60"
+            value={dailyGoal} 
+            onChange={(e) => setDailyGoal(e.target.value)} 
+            min="1"
+            max="1440"
           />
         </div>
 
-        <button className="btn w-full" style={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', color: '#0F172A', fontWeight: 'bold' }} onClick={handleSaveAPIKey}>
-          Save API Key to LocalStorage
+        <button 
+          className="w-full bg-white text-slate-900 border border-slate-200 font-bold py-4 rounded-2xl shadow-sm hover:bg-slate-50 transition-all cursor-pointer disabled:opacity-70" 
+          onClick={handleSaveDailyGoal}
+          disabled={loading}
+        >
+          {loading ? 'Saving...' : 'Save Preferences'}
         </button>
       </div>
     </div>

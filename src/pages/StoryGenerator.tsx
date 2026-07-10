@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { useAuthStore } from '../store/useAuthStore';
 import { useDataStore } from '../store/useDataStore';
-import { BookOpen, Key, Loader2, Volume2, Type, Languages, RefreshCw } from 'lucide-react';
-import Groq from 'groq-sdk';
+import { BookOpen, Loader2, Volume2, Type, Languages, RefreshCw } from 'lucide-react';
 
 interface StoryWord {
   zh: string;
@@ -20,9 +19,7 @@ interface Story {
 
 export const StoryGenerator: React.FC = () => {
   const { user } = useAuthStore();
-  const { updateStudyTime } = useDataStore();
-  
-  const [apiKey, setApiKey] = useState('');
+
   const [story, setStory] = useState<Story | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -40,12 +37,10 @@ export const StoryGenerator: React.FC = () => {
   const [selectedWord, setSelectedWord] = useState<StoryWord | null>(null);
 
   useEffect(() => {
-    const savedKey = localStorage.getItem('lingua_groq_key');
-    if (savedKey) setApiKey(savedKey);
-    checkAndLoadStory(savedKey);
+    checkAndLoadStory();
   }, []);
 
-  const checkAndLoadStory = async (key: string | null) => {
+  const checkAndLoadStory = async () => {
     setLoading(true);
     setError('');
     try {
@@ -61,12 +56,7 @@ export const StoryGenerator: React.FC = () => {
         }
       }
 
-      // Need new story
-      if (key) {
-        await generateNewStory(key);
-      } else {
-        setLoading(false); // Can't generate without key
-      }
+      await generateNewStory();
     } catch (e) {
       console.error(e);
       setError("Failed to load your reading material.");
@@ -74,7 +64,7 @@ export const StoryGenerator: React.FC = () => {
     }
   };
 
-  const generateNewStory = async (key: string) => {
+  const generateNewStory = async () => {
     if (!user) return;
     try {
       // 1. Fetch Known Words
@@ -91,43 +81,21 @@ export const StoryGenerator: React.FC = () => {
       const { data: pool } = await supabase.from('flashcard_view').select('vocab_id, simplified, pinyin, meanings').order('frequency_rank', { ascending: true }).limit(50);
       const targetWords = pool ? pool.filter(w => !knownIds.includes(w.vocab_id)).slice(0, 5) : [];
 
-      const knownList = knownWords.map(w => w.simplified).join(', ');
-      const targetList = targetWords.map(w => `${w.simplified} (${w.pinyin})`).join(', ');
+      const knownList = knownWords.map(w => w.simplified);
+      const targetList = targetWords.map(w => `${w.simplified} (${w.pinyin})`);
 
-      const groq = new Groq({ apiKey: key, dangerouslyAllowBrowser: true });
-      
-      const prompt = `You are an expert Chinese language teacher creating Comprehensible Input material.
-Write a short, engaging story in Simplified Chinese (about 150-200 characters).
-
-Constraints:
-1. Use these specific new target words organically: [${targetList}].
-2. Also try to use these known words: [${knownList}]. If empty, use basic HSK 1/2 words.
-3. Segment EVERY SINGLE word or punctuation mark in the story into an array of objects. Do not group entire sentences. Each object should represent a single word or punctuation mark.
-
-Return ONLY a valid JSON object in this exact format:
-{
-  "title": "Story Title in English",
-  "words": [
-    { "zh": "我", "py": "wǒ", "en": "I" },
-    { "zh": "喜欢", "py": "xǐhuan", "en": "like" },
-    { "zh": "喝", "py": "hē", "en": "drink" },
-    { "zh": "水", "py": "shuǐ", "en": "water" },
-    { "zh": "。", "py": "", "en": "" }
-  ],
-  "english_translation": "I like to drink water."
-}`;
-
-      const completion = await groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
+      const res = await fetch('/api/story', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetWords: targetList, knownWords: knownList })
       });
 
-      let content = completion.choices[0]?.message?.content || '';
-      if (content.startsWith('```json')) content = content.replace('```json', '').replace('```', '');
-      else if (content.startsWith('```')) content = content.replace('```', '');
-      
-      const parsed = JSON.parse(content.trim());
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to generate story');
+      }
+
+      const parsed = await res.json();
       const newStory: Story = {
         ...parsed,
         generated_at: new Date().toISOString()
@@ -154,31 +122,30 @@ Return ONLY a valid JSON object in this exact format:
 
   if (loading) {
     return (
-      <div className="flex-col gap-6 animate-fade-in" style={{ maxWidth: '800px', margin: '0 auto' }}>
+      <div className="max-w-4xl mx-auto flex flex-col gap-8 transition-all pb-12 mt-12">
         <div className="flex justify-between items-center mb-4">
-          <h1 className="h2 flex items-center gap-2"><BookOpen className="text-brand" /> Reading Practice</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3"><BookOpen className="text-indigo-600" size={32} /> Reading Practice</h1>
         </div>
-        <div className="card flex-col items-center justify-center min-h-[400px] text-brand">
-          <Loader2 size={48} className="animate-spin mb-4" />
-          <h3 className="text-lg font-bold">Curating your personalized reading...</h3>
-          <p className="text-secondary mt-2">Integrating your recent vocabulary</p>
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center justify-center min-h-[400px] text-indigo-600">
+          <Loader2 size={64} className="animate-spin mb-6" strokeWidth={1.5} />
+          <h3 className="text-2xl font-extrabold tracking-tight text-slate-900">Curating your personalized reading...</h3>
+          <p className="text-slate-500 font-medium text-lg mt-3">Integrating your recent vocabulary</p>
         </div>
       </div>
     );
   }
 
-  if (!apiKey && !story) {
+  if (!story) {
     return (
-      <div className="flex-col gap-6 animate-fade-in" style={{ maxWidth: '800px', margin: '0 auto' }}>
+      <div className="max-w-4xl mx-auto flex flex-col gap-8 transition-all pb-12 mt-12">
         <div className="flex justify-between items-center mb-4">
-          <h1 className="h2 flex items-center gap-2"><BookOpen className="text-brand" /> Reading Practice</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3"><BookOpen className="text-indigo-600" size={32} /> Reading Practice</h1>
         </div>
-        <div className="card flex items-start gap-4" style={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
-          <Key size={24} className="text-brand mt-1" />
+        <div className="bg-slate-50 rounded-3xl border border-slate-200 shadow-sm flex items-start gap-6 p-8">
           <div className="flex-1">
-            <h3 className="font-bold text-lg text-slate-800">Unlock Personalized Reading</h3>
-            <p className="text-slate-600 mt-1">
-              To automatically receive new, level-appropriate reading materials every few days, please configure your API Key in the Settings.
+            <h3 className="font-extrabold text-xl text-slate-900 tracking-tight">Could Not Load Story</h3>
+            <p className="text-slate-600 font-medium text-lg mt-2 leading-relaxed">
+              We encountered an issue generating your personalized reading material. Please try again later.
             </p>
           </div>
         </div>
@@ -187,113 +154,108 @@ Return ONLY a valid JSON object in this exact format:
   }
 
   return (
-    <div className="flex-col gap-6 animate-fade-in" style={{ maxWidth: '800px', margin: '0 auto' }}>
+    <div className="max-w-6xl mx-auto flex flex-col gap-8 transition-all pb-12">
       
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm mt-8 flex-wrap gap-6">
         <div>
-          <h1 className="h2 flex items-center gap-2"><BookOpen className="text-brand" /> Reading Practice</h1>
-          <p className="text-secondary mt-1">Contextual reading tailored to your vocabulary level.</p>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3"><BookOpen className="text-indigo-600" size={32} /> Reading Practice</h1>
+          <p className="text-slate-500 font-medium text-lg mt-2">Contextual reading tailored to your vocabulary level.</p>
         </div>
         
         {/* Reading Aids Toolbar */}
-        <div className="flex gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
+        <div className="flex gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
           <button 
-            className={`btn ${showPinyin ? 'btn-dark' : 'btn-secondary'} flex items-center gap-2`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold transition-all cursor-pointer ${showPinyin ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'}`}
             onClick={() => setShowPinyin(!showPinyin)}
-            style={{ padding: '8px 16px', fontSize: '13px' }}
           >
-            <Type size={16} /> Pinyin
+            <Type size={18} /> Pinyin
           </button>
           <button 
-            className={`btn ${showEnglish ? 'btn-dark' : 'btn-secondary'} flex items-center gap-2`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold transition-all cursor-pointer ${showEnglish ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'}`}
             onClick={() => setShowEnglish(!showEnglish)}
-            style={{ padding: '8px 16px', fontSize: '13px' }}
           >
-            <Languages size={16} /> Translation
+            <Languages size={18} /> Translation
           </button>
           <button 
-            className="btn btn-secondary"
-            onClick={() => checkAndLoadStory(apiKey)}
+            className="p-3 bg-white text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all cursor-pointer"
+            onClick={() => checkAndLoadStory()}
             title="Force refresh story"
-            style={{ padding: '8px' }}
           >
-            <RefreshCw size={16} />
+            <RefreshCw size={18} />
           </button>
         </div>
       </div>
 
       {error && (
-        <div style={{ padding: '16px', backgroundColor: '#FEE2E2', color: '#DC2626', borderRadius: '8px', fontWeight: 'bold' }}>
+        <div className="p-6 bg-rose-50 text-rose-600 rounded-2xl border border-rose-200 font-bold shadow-sm">
           {error}
         </div>
       )}
 
       {story && (
-        <div className="grid gap-6" style={{ gridTemplateColumns: '2fr 1fr' }}>
+        <div className="grid gap-8 lg:grid-cols-3">
           
           {/* Main Story Content */}
-          <div className="card flex-col gap-6" style={{ padding: '40px' }}>
-            <div className="flex justify-between items-start border-b border-slate-100 pb-4">
-              <h2 className="text-2xl font-bold text-slate-800">{story.title}</h2>
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col gap-8 p-8 md:p-12 lg:col-span-2 transition-all">
+            <div className="flex justify-between items-start border-b border-slate-100 pb-6">
+              <h2 className="text-3xl font-extrabold tracking-tight text-slate-900">{story.title}</h2>
               <button 
                 onClick={() => playAudio(story.words.map(w => w.zh).join(''))}
-                className="text-brand hover-scale p-2 rounded-full hover:bg-slate-50"
+                className="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 p-3 rounded-full transition-colors cursor-pointer"
               >
                 <Volume2 size={24} />
               </button>
             </div>
 
             <div 
-              className="chinese-text" 
-              style={{ fontSize: '24px', lineHeight: showPinyin ? '2.5' : '1.8', color: '#0F172A' }}
+              className={`font-chinese text-3xl md:text-4xl text-slate-900 leading-loose ${showPinyin ? 'leading-[3.5]' : ''}`}
             >
               {story.words.map((w, i) => (
                 <span 
                   key={i} 
-                  className={`inline-block cursor-pointer hover:bg-indigo-50 rounded transition-colors ${selectedWord === w ? 'bg-indigo-100 text-brand' : ''}`}
+                  className={`inline-block cursor-pointer px-1 mx-0.5 rounded-lg transition-colors ${selectedWord === w ? 'bg-indigo-100 text-indigo-700' : 'hover:bg-slate-50'}`}
                   onClick={() => w.en ? setSelectedWord(w) : setSelectedWord(null)}
-                  style={{ margin: '0 2px', padding: '0 2px' }}
                 >
                   <ruby>
                     {w.zh}
-                    {showPinyin && w.py && <rt style={{ fontSize: '12px', color: '#6366F1', fontWeight: 'normal', userSelect: 'none' }}>{w.py}</rt>}
+                    {showPinyin && w.py && <rt className="text-sm text-indigo-500 font-medium tracking-wide select-none transform -translate-y-1">{w.py}</rt>}
                   </ruby>
                 </span>
               ))}
             </div>
 
             {showEnglish && (
-              <div className="mt-8 pt-6 border-t border-slate-100 animate-fade-in">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Translation</h4>
-                <p className="text-slate-600 text-lg leading-relaxed">{story.english_translation}</p>
+              <div className="mt-8 pt-8 border-t border-slate-100 animate-in fade-in duration-300">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Translation</h4>
+                <p className="text-slate-600 text-xl font-medium leading-relaxed">{story.english_translation}</p>
               </div>
             )}
           </div>
 
           {/* Interactive Dictionary Panel */}
-          <div className="flex-col gap-4">
-            <div className="card sticky top-6">
-              <h3 className="h3 font-bold text-secondary text-sm uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">Word Details</h3>
+          <div className="flex flex-col gap-6">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 sticky top-8 transition-all">
+              <h3 className="font-bold text-slate-400 text-xs uppercase tracking-widest mb-6 border-b border-slate-100 pb-4">Word Details</h3>
               
               {selectedWord ? (
-                <div className="flex-col gap-4 animate-fade-in">
-                  <div className="flex justify-between items-center">
+                <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="flex justify-between items-start">
                     <div>
-                      <div className="chinese-text font-bold text-brand" style={{ fontSize: '48px', lineHeight: 1 }}>{selectedWord.zh}</div>
-                      <div className="text-slate-600 font-medium text-lg mt-2">{selectedWord.py}</div>
+                      <div className="font-chinese font-extrabold text-indigo-600 text-6xl leading-none">{selectedWord.zh}</div>
+                      <div className="text-slate-700 font-bold text-2xl mt-4 tracking-wide">{selectedWord.py}</div>
                     </div>
-                    <button onClick={() => playAudio(selectedWord.zh)} className="text-slate-400 hover:text-brand transition-colors p-2" style={{ background: 'none', border: 'none', cursor: 'pointer' }}><Volume2 size={24} /></button>
+                    <button onClick={() => playAudio(selectedWord.zh)} className="text-indigo-400 hover:text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors p-4 rounded-full cursor-pointer flex-shrink-0 ml-4"><Volume2 size={28} /></button>
                   </div>
                   
-                  <div className="bg-slate-50 p-4 rounded-lg mt-2 border border-slate-100">
-                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Meaning</div>
-                    <div className="text-slate-800 font-medium text-lg">{selectedWord.en}</div>
+                  <div className="bg-slate-50 p-6 rounded-2xl mt-4 border border-slate-100">
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Meaning</div>
+                    <div className="text-slate-900 font-medium text-xl leading-relaxed">{selectedWord.en}</div>
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-12 text-slate-400">
-                  <BookOpen size={32} className="mx-auto mb-3 opacity-20" />
-                  <p className="text-sm">Click any word in the story to view its meaning and pronunciation.</p>
+                <div className="text-center py-20 text-slate-400">
+                  <BookOpen size={48} className="mx-auto mb-6 opacity-20" strokeWidth={1} />
+                  <p className="text-lg font-medium leading-relaxed px-4">Click any word in the story to view its meaning and pronunciation.</p>
                 </div>
               )}
             </div>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../services/supabase';
-import { Flame, Mail, Lock } from 'lucide-react';
+import { Mail, Lock } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -41,59 +41,65 @@ export const Auth: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', width: '100vw', backgroundColor: 'var(--color-background)', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="card" style={{ width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-          <div className="logo-box" style={{ width: '48px', height: '48px', fontSize: '24px' }}>汉</div>
-          <h1 className="h1" style={{ marginTop: '8px' }}>LinguaFlow</h1>
-          <p className="text-secondary">{isLogin ? 'Sign in to continue your journey' : 'Create an account to start learning'}</p>
+    <div className="flex h-screen w-screen bg-slate-50 items-center justify-center p-4">
+      <div className="bg-white rounded-3xl p-10 border border-slate-200 shadow-sm w-full max-w-md flex flex-col gap-8 transition-all hover:shadow-md">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-14 h-14 bg-indigo-600 text-white rounded-2xl flex items-center justify-center font-chinese text-3xl font-bold shadow-sm">
+            汉
+          </div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 mt-2">LinguaFlow</h1>
+          <p className="text-slate-500 font-medium">{isLogin ? 'Sign in to continue your journey' : 'Create an account to start learning'}</p>
         </div>
 
-        {error && <div style={{ padding: '12px', backgroundColor: '#FEE2E2', color: '#DC2626', borderRadius: '8px', fontSize: '14px' }}>{error}</div>}
-        {success && <div style={{ padding: '12px', backgroundColor: '#D1FAE5', color: '#059669', borderRadius: '8px', fontSize: '14px' }}>{success}</div>}
+        {error && <div className="p-4 bg-rose-50 text-rose-600 rounded-2xl border border-rose-200 font-bold text-sm shadow-sm">{error}</div>}
+        {success && <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-200 font-bold text-sm shadow-sm">{success}</div>}
 
-        <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <form onSubmit={handleAuth} className="flex flex-col gap-5">
           <div>
-            <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Email Address</label>
-            <div style={{ position: 'relative' }}>
-              <Mail size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-tertiary)' }} />
+            <label className="block mb-2 text-slate-500 font-bold text-xs uppercase tracking-widest">Email Address</label>
+            <div className="relative">
+              <Mail size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
               <input 
                 type="email" 
                 required 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="scholar@example.com"
-                style={{ width: '100%', padding: '12px 12px 12px 40px', borderRadius: '8px', border: '1px solid var(--color-border)', fontSize: '14px' }}
+                className="w-full pl-12 pr-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 font-medium focus:outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 transition-all"
               />
             </div>
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Password</label>
-            <div style={{ position: 'relative' }}>
-              <Lock size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-tertiary)' }} />
+            <label className="block mb-2 text-slate-500 font-bold text-xs uppercase tracking-widest">Password</label>
+            <div className="relative">
+              <Lock size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
               <input 
                 type="password" 
                 required 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                style={{ width: '100%', padding: '12px 12px 12px 40px', borderRadius: '8px', border: '1px solid var(--color-border)', fontSize: '14px' }}
+                className="w-full pl-12 pr-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 font-medium focus:outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 transition-all"
               />
             </div>
           </div>
 
-          <button type="submit" className="btn btn-dark w-full" disabled={loading} style={{ marginTop: '8px', padding: '14px' }}>
+          <button 
+            type="submit" 
+            className="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl shadow-sm mt-4 hover:-translate-y-0.5 hover:shadow-md transition-all disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer" 
+            disabled={loading}
+          >
             {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
           </button>
         </form>
 
-        <div style={{ textAlign: 'center', fontSize: '14px' }}>
-          <span className="text-secondary">{isLogin ? "Don't have an account? " : "Already have an account? "}</span>
+        <div className="text-center text-sm font-medium">
+          <span className="text-slate-500">{isLogin ? "Don't have an account? " : "Already have an account? "}</span>
           <button 
             type="button" 
             onClick={() => setIsLogin(!isLogin)}
-            style={{ background: 'none', border: 'none', color: 'var(--color-brand)', fontWeight: '600', cursor: 'pointer' }}
+            className="text-indigo-600 font-bold hover:text-indigo-700 transition-colors ml-1 cursor-pointer bg-transparent border-none"
           >
             {isLogin ? 'Sign up' : 'Sign in'}
           </button>

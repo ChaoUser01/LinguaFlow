@@ -6,6 +6,7 @@ interface UserProfile {
   streak_days: number;
   words_mastered: number;
   study_time_minutes: number;
+  daily_goal_minutes: number;
   created_at: string;
 }
 
@@ -18,6 +19,7 @@ interface DataState {
   error: string | null;
   fetchDashboardData: (userId: string) => Promise<void>;
   updateStudyTime: (userId: string, minutesAdded: number) => Promise<void>;
+  updateDailyGoal: (userId: string, newGoal: number) => Promise<void>;
   
   // Timer State
   isStudying: boolean;
@@ -96,6 +98,22 @@ export const useDataStore = create<DataState>((set, get) => ({
       
     if (!error) {
       set({ profile: { ...profile, study_time_minutes: newTotal } });
+    }
+  },
+
+  updateDailyGoal: async (userId: string, newGoal: number) => {
+    const { profile } = get();
+    if (!profile) return;
+    
+    const { error } = await supabase
+      .from('profiles')
+      .update({ daily_goal_minutes: newGoal })
+      .eq('id', userId);
+      
+    if (!error) {
+      set({ profile: { ...profile, daily_goal_minutes: newGoal } });
+    } else {
+      throw error;
     }
   },
 
