@@ -1,0 +1,163 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+
+:root {
+  /* Brand Colors */
+  --color-brand: #E11D48; /* Rose 600 */
+  --color-brand-light: #FFF1F2; /* Rose 50 */
+  
+  /* Primary Actions */
+  --color-primary: #4F46E5; /* Indigo 600 */
+  --color-primary-light: #6366F1; /* Indigo 500 */
+  --color-primary-hover: #4338CA;
+  
+  --color-dark-navy: #0F172A; /* Slate 900 */
+  --color-dark-navy-hover: #1E293B;
+
+  /* UI Colors */
+  --color-background: #F4F7F9;
+  --color-surface: #FFFFFF;
+  
+  /* Text */
+  --color-text-primary: #1E293B; /* Slate 800 */
+  --color-text-secondary: #64748B; /* Slate 500 */
+  --color-text-tertiary: #94A3B8; /* Slate 400 */
+  
+  /* Status Colors */
+  --color-success: #10B981;
+  --color-info: #0EA5E9;
+  --color-warning: #F59E0B;
+  --color-purple: #8B5CF6;
+
+  /* Borders & Shadows */
+  --color-border: #E2E8F0;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.03);
+  
+  --font-family-base: 'Inter', system-ui, sans-serif;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-family-base); background-color: var(--color-background); color: var(--color-text-primary); -webkit-font-smoothing: antialiased; }
+#root { display: flex; flex-direction: column; min-height: 100vh; }
+
+.h1 { font-size: 24px; font-weight: 700; color: var(--color-text-primary); letter-spacing: -0.01em; }
+.text-secondary { color: var(--color-text-secondary); font-size: 14px; }
+.font-bold { font-weight: 700; }
+.font-medium { font-weight: 500; }
+
+.flex { display: flex; }
+.flex-col { display: flex; flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-2 { gap: 8px; }
+.gap-4 { gap: 16px; }
+.gap-6 { gap: 24px; }
+
+.w-full { width: 100%; }
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+.btn-dark {
+  background-color: var(--color-dark-navy);
+  color: white;
+}
+.btn-dark:hover { background-color: var(--color-dark-navy-hover); }
+
+.btn-purple {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  backdrop-filter: blur(4px);
+}
+.btn-purple:hover { background-color: rgba(255, 255, 255, 0.3); }
+
+/* Cards */
+.card {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 24px;
+}
+
+.purple-card {
+  background: linear-gradient(135deg, #5B21B6 0%, #4F46E5 100%);
+  color: white;
+  border-radius: var(--radius-xl);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+}
+
+.badge-red {
+  display: inline-block;
+  background-color: #FFE4E6;
+  color: #E11D48;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge-orange {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #FFF7ED;
+  color: #EA580C;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Forms */
+.input {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-size: 15px;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary-light);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  background-color: var(--color-surface);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.hover-scale {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hover-scale:hover {
+  transform: scale(1.05);
+}
