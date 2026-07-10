@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../services/supabase';
 import { useAuthStore } from '../store/useAuthStore';
+import { useDataStore } from '../store/useDataStore';
 import { BookOpen, Key, Loader2, Volume2, Type, Languages, RefreshCw } from 'lucide-react';
 import Groq from 'groq-sdk';
 
@@ -19,11 +20,19 @@ interface Story {
 
 export const StoryGenerator: React.FC = () => {
   const { user } = useAuthStore();
+  const { updateStudyTime } = useDataStore();
   
   const [apiKey, setApiKey] = useState('');
   const [story, setStory] = useState<Story | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  
+  useEffect(() => {
+    if (user) {
+      useDataStore.getState().startStudySession(user.id);
+    }
+    return () => useDataStore.getState().stopStudySession();
+  }, [user]);
   
   // Reading Aids
   const [showPinyin, setShowPinyin] = useState(true);
@@ -268,17 +277,17 @@ Return ONLY a valid JSON object in this exact format:
               
               {selectedWord ? (
                 <div className="flex-col gap-4 animate-fade-in">
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-center">
                     <div>
                       <div className="chinese-text font-bold text-brand" style={{ fontSize: '48px', lineHeight: 1 }}>{selectedWord.zh}</div>
                       <div className="text-slate-600 font-medium text-lg mt-2">{selectedWord.py}</div>
                     </div>
-                    <button onClick={() => playAudio(selectedWord.zh)} className="text-slate-400 hover:text-brand transition-colors p-2"><Volume2 size={20} /></button>
+                    <button onClick={() => playAudio(selectedWord.zh)} className="text-slate-400 hover:text-brand transition-colors p-2" style={{ background: 'none', border: 'none', cursor: 'pointer' }}><Volume2 size={24} /></button>
                   </div>
                   
                   <div className="bg-slate-50 p-4 rounded-lg mt-2 border border-slate-100">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Meaning</span>
-                    <span className="text-slate-800 font-medium">{selectedWord.en}</span>
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Meaning</div>
+                    <div className="text-slate-800 font-medium text-lg">{selectedWord.en}</div>
                   </div>
                 </div>
               ) : (

@@ -37,7 +37,21 @@ export const Flashcards: React.FC = () => {
 
   // Extra Details State
   const [extraDetailsLoading, setExtraDetailsLoading] = useState(false);
-  const [aiDetails, setAiDetails] = useState<{ sentence: any; compounds: any } | null>(null);
+  const [aiDetails, setAiDetails] = useState<{ sentence: any; compounds: any; meaning: any } | null>(null);
+
+  // Global Study Session Timer
+  useEffect(() => {
+    if (mode === 'review' && user) {
+      useDataStore.getState().startStudySession(user.id);
+    } else {
+      useDataStore.getState().stopStudySession();
+    }
+    return () => useDataStore.getState().stopStudySession();
+  }, [mode, user]);
+
+  const endSession = () => {
+    setMode('summary');
+  };
 
   // Auto-fetch extra details when card changes
   useEffect(() => {
@@ -66,8 +80,8 @@ export const Flashcards: React.FC = () => {
       const text = (m.meaning || '').trim();
       return !JUNK_PREFIXES.some(prefix => text.startsWith(prefix));
     });
-    // If ALL meanings were filtered out, keep the first one
-    return filtered.length > 0 ? filtered : [meanings[0]];
+    // If ALL meanings were filtered out, just return the empty array so the Meaning block is hidden
+    return filtered;
   };
 
   // Auto-start Daily Review from Dashboard URL
@@ -84,7 +98,7 @@ export const Flashcards: React.FC = () => {
       const timer = setInterval(() => setTimeLeft(prev => (prev !== null ? prev - 1 : null)), 1000);
       return () => clearInterval(timer);
     } else if (mode === 'review' && timeLeft === 0) {
-      setMode('summary');
+      endSession();
     }
   }, [mode, timeLeft]);
 
@@ -112,10 +126,20 @@ export const Flashcards: React.FC = () => {
       levels: [1, 2, 3, 4, 5, 6],
       timeLimitMinutes: null
     };
-    await startSession(deck, true);
+    await startSession(deck, true, false);
   };
 
-  const startSession = async (deck: Deck, isSystemDeck: boolean = false) => {
+  const startSavedWordsReview = async () => {
+    const deck: Deck = {
+      id: 'system_saved',
+      name: 'My Saved Words',
+      levels: [], // ignored for saved words
+      timeLimitMinutes: null
+    };
+    await startSession(deck, false, true);
+  };
+
+  const startSession = async (deck: Deck, isSystemDeck: boolean = false, isSavedWordsDeck: boolean = false) => {
     setActiveDeck(deck);
     setLoading(true);
     setMode('review');
@@ -185,21 +209,25 @@ export const Flashcards: React.FC = () => {
       .filter((c): c is any => c !== null && deck.levels.includes(c.vocab.hsk_level));
 
     // 2. Fetch new cards to inject
-    let newWordsQuery = supabase
-      .from('flashcard_view')
-      .select('*')
-      .in('hsk_level', deck.levels)
-      .limit(100);
+    let newWords: any[] = [];
+    
+    if (!isSavedWordsDeck) {
+      let newWordsQuery = supabase
+        .from('flashcard_view')
+        .select('*')
+        .in('hsk_level', deck.levels)
+        .limit(100);
+        
+      if (isSystemDeck) {
+        newWordsQuery = newWordsQuery.order('frequency_rank', { ascending: true });
+      }
       
-    if (isSystemDeck) {
-      newWordsQuery = newWordsQuery.order('frequency_rank', { ascending: true });
+      const { data: fetchedNewWords } = await newWordsQuery;
+      
+      newWords = (fetchedNewWords || [])
+        .filter(w => !knownIds.has(w.vocab_id))
+        .slice(0, isSystemDeck ? 10 : 20);
     }
-    
-    const { data: fetchedNewWords } = await newWordsQuery;
-    
-    const newWords = (fetchedNewWords || [])
-      .filter(w => !knownIds.has(w.vocab_id))
-      .slice(0, isSystemDeck ? 10 : 20);
 
     const newQueue = newWords.map(w => ({
       isNew: true,
@@ -218,7 +246,7 @@ export const Flashcards: React.FC = () => {
     setShowAnswer(false);
 
     if (!firstCard) {
-      setMode('summary');
+      endSession();
     }
   };
 
@@ -279,13 +307,13 @@ export const Flashcards: React.FC = () => {
     setCardsReviewed(prev => prev + 1);
 
     // Pick next card — session ends when null
-    const next = selector.pickNextCard();
-    if (next) {
-      setCurrentCard(next);
+    const nextCard = selector.pickNextCard();
+    if (nextCard) {
+      setCurrentCard(nextCard);
       setShowAnswer(false);
       setAiDetails(null);
     } else {
-      setMode('summary');
+      endSession();
     }
   };
 
@@ -312,6 +340,12 @@ export const Flashcards: React.FC = () => {
             <p style={{ opacity: 0.9, fontSize: '14px', lineHeight: 1.5 }}>Automated spaced repetition feed prioritizing due cards and auto-injecting new vocabulary.</p>
             <div className="flex gap-2 mt-auto"><span className="badge-white" style={{ background: 'rgba(255,255,255,0.2)' }}>Smart Queue</span></div>
             <button className="btn w-full mt-4 flex items-center justify-center gap-2" style={{ backgroundColor: 'white', color: '#6366f1' }} onClick={startDailyReview}><Play size={18} /> Start System Review</button>
+          </div>
+          <div className="card flex-col gap-4 hover-scale">
+            <h3 className="h3 flex items-center gap-2"><Bookmark size={20} className="text-brand" /> Saved Words</h3>
+            <p className="text-secondary" style={{ fontSize: '14px', lineHeight: 1.5 }}>Review your entire vocabulary collection without the system automatically adding new words.</p>
+            <div className="flex gap-2 mt-auto"><span className="badge-purple">Custom Queue</span></div>
+            <button className="btn btn-secondary w-full mt-4 flex items-center justify-center gap-2" onClick={startSavedWordsReview}><Play size={18} /> Start Custom Review</button>
           </div>
           {decks.map(deck => (
             <div key={deck.id} className="card flex-col gap-4 hover-scale">
@@ -424,14 +458,18 @@ export const Flashcards: React.FC = () => {
           <div className="flex-col animate-fade-in" style={{ padding: '24px', flex: 1, backgroundColor: 'white' }}>
             
             {/* Meanings */}
-            <div className="mb-6">
-              <h4 className="text-secondary font-bold mb-2" style={{ textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.1em' }}>Meaning</h4>
-              <ul style={{ paddingLeft: '20px', fontSize: '18px', color: '#0F172A', lineHeight: '1.6' }}>
-                {filterMeanings(vocab.meanings).slice(0, 4).map((d: any, i: number) => (
-                  <li key={i}>{d.meaning}</li>
-                ))}
-              </ul>
-            </div>
+            {(filterMeanings(vocab.meanings).length > 0 || aiDetails?.meaning) && (
+              <div className="mb-6">
+                <h4 className="text-secondary font-bold mb-2" style={{ textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.1em' }}>Meaning</h4>
+                <ul style={{ paddingLeft: '20px', fontSize: '18px', color: '#0F172A', lineHeight: '1.6' }}>
+                  {filterMeanings(vocab.meanings).length > 0 ? filterMeanings(vocab.meanings).slice(0, 4).map((d: any, i: number) => (
+                    <li key={i}>{d.meaning}</li>
+                  )) : (
+                    <li>{aiDetails?.meaning} <span className="badge-purple" style={{ fontSize: '10px', marginLeft: '4px' }}>AI</span></li>
+                  )}
+                </ul>
+              </div>
+            )}
 
              {/* AI Details Auto-Load */}
               <div className="flex-col gap-6 animate-fade-in" style={{ borderTop: '1px solid #E2E8F0', paddingTop: '24px' }}>

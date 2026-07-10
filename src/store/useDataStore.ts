@@ -18,6 +18,12 @@ interface DataState {
   error: string | null;
   fetchDashboardData: (userId: string) => Promise<void>;
   updateStudyTime: (userId: string, minutesAdded: number) => Promise<void>;
+  
+  // Timer State
+  isStudying: boolean;
+  studyIntervalId: any | null;
+  startStudySession: (userId: string) => void;
+  stopStudySession: () => void;
 }
 
 export const useDataStore = create<DataState>((set, get) => ({
@@ -27,6 +33,8 @@ export const useDataStore = create<DataState>((set, get) => ({
   totalCards: 0,
   loading: false,
   error: null,
+  isStudying: false,
+  studyIntervalId: null,
   
   fetchDashboardData: async (userId: string) => {
     set({ loading: true, error: null });
@@ -89,5 +97,27 @@ export const useDataStore = create<DataState>((set, get) => ({
     if (!error) {
       set({ profile: { ...profile, study_time_minutes: newTotal } });
     }
+  },
+
+  startStudySession: (userId: string) => {
+    const { isStudying, studyIntervalId, updateStudyTime } = get();
+    if (isStudying) return;
+
+    if (studyIntervalId) clearInterval(studyIntervalId);
+
+    // Update study time every 60 seconds automatically
+    const id = setInterval(() => {
+      updateStudyTime(userId, 1);
+    }, 60000);
+
+    set({ isStudying: true, studyIntervalId: id });
+  },
+
+  stopStudySession: () => {
+    const { studyIntervalId } = get();
+    if (studyIntervalId) {
+      clearInterval(studyIntervalId);
+    }
+    set({ isStudying: false, studyIntervalId: null });
   }
 }));

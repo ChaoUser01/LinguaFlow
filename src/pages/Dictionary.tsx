@@ -13,7 +13,7 @@ function filterMeanings(meanings: any[]): any[] {
     const m = (d.meaning || d).toLowerCase().trim();
     return !JUNK_PREFIXES.some(prefix => m.startsWith(prefix));
   });
-  return filtered.length > 0 ? filtered : [meanings[0]]; // Keep at least one
+  return filtered;
 }
 
 export const Dictionary: React.FC = () => {
@@ -183,6 +183,7 @@ export const Dictionary: React.FC = () => {
             _aiLoading: false,
             _aiDetails: true,
             pos: details.pos || null,
+            meaning_ai: details.meaning || null,
             sentences: details.sentence ? [details.sentence] : next[index].sentences,
             compounds: details.compounds ? details.compounds : next[index].compounds,
           };
@@ -262,7 +263,7 @@ export const Dictionary: React.FC = () => {
           const cleanMeanings = filterMeanings(vocab.meanings || []);
 
           return (
-            <div key={vocab.vocab_id || idx} className="card flex-col animate-fade-in" style={{ padding: 0, overflow: 'hidden' }}>
+            <div key={vocab.vocab_id || idx} className={`card flex-col hover-lift animate-fade-in stagger-${(idx % 5) + 1}`} style={{ padding: 0, overflow: 'hidden' }}>
               {/* Main Row */}
               <div
                 className="flex justify-between items-center"
@@ -278,10 +279,10 @@ export const Dictionary: React.FC = () => {
                   <div className="flex-col gap-2" style={{ flex: 1, minWidth: 0, paddingRight: '16px' }}>
                     <div className="flex items-center gap-3 flex-wrap">
                       <span className="font-bold" style={{ fontSize: '18px', color: '#334155' }}>{vocab.pinyin}</span>
-                      {vocab.pos && <span className="badge-purple" style={{ padding: '2px 8px', fontSize: '12px', borderRadius: '4px', backgroundColor: '#EDE9FE', color: '#6D28D9', border: '1px solid #DDD6FE' }}>{vocab.pos}</span>}
+                      {isExpanded && vocab.pos && <span className="badge-purple" style={{ padding: '2px 8px', fontSize: '12px', borderRadius: '4px', backgroundColor: '#EDE9FE', color: '#6D28D9', border: '1px solid #DDD6FE' }}>{vocab.pos}</span>}
                     </div>
                     <span className="text-secondary" style={{ fontSize: '15px', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                      {cleanMeanings.slice(0, 3).map((d: any) => d.meaning || d).join('; ')}
+                      {!isExpanded && (cleanMeanings.length > 0 ? cleanMeanings.slice(0, 3).map((d: any) => d.meaning || d).join('; ') : (vocab.meaning_ai || ''))}
                     </span>
                   </div>
                 </div>
@@ -307,44 +308,51 @@ export const Dictionary: React.FC = () => {
 
               {/* Expanded Details */}
               {isExpanded && (
-                <div className="flex-col gap-5 animate-fade-in" style={{ padding: '0 24px 24px', borderTop: '1px solid #E2E8F0' }}>
-                  {/* All Meanings */}
-                  <div style={{ paddingTop: '20px' }}>
-                    <h4 className="text-secondary font-bold mb-2" style={{ textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.1em' }}>Definitions</h4>
-                    <ol style={{ paddingLeft: '20px', fontSize: '16px', color: '#0F172A', lineHeight: '1.8' }}>
-                      {cleanMeanings.map((d: any, i: number) => (
-                        <li key={i}>{d.meaning || d}</li>
-                      ))}
-                    </ol>
-                  </div>
-
-                  {/* Traditional Character */}
-                  {vocab.traditional && vocab.traditional !== vocab.simplified && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-secondary text-sm font-medium">Traditional:</span>
-                      <span className="chinese-text font-bold" style={{ fontSize: '20px' }}>{vocab.traditional}</span>
+                <div className="flex-col gap-6 animate-fade-in" style={{ padding: '24px', backgroundColor: '#FAFAFA', borderTop: '1px solid #F1F5F9' }}>
+                  
+                  {/* Meta Bar */}
+                  {(vocab.traditional || vocab.frequency_rank) && (
+                    <div className="flex gap-6 items-center flex-wrap" style={{ padding: '12px 16px', backgroundColor: '#FFFFFF', borderRadius: '10px', border: '1px solid #E2E8F0', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
+                      {vocab.traditional && vocab.traditional !== vocab.simplified && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-secondary" style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Traditional</span>
+                          <span className="chinese-text font-bold text-brand" style={{ fontSize: '18px' }}>{vocab.traditional}</span>
+                        </div>
+                      )}
+                      {vocab.frequency_rank && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-secondary" style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Frequency Rank</span>
+                          <span className="badge-purple" style={{ padding: '4px 10px', fontSize: '13px' }}>#{vocab.frequency_rank}</span>
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  {/* Frequency Rank */}
-                  {vocab.frequency_rank && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-secondary text-sm font-medium">Frequency Rank:</span>
-                      <span className="badge-white" style={{ padding: '2px 8px', fontSize: '12px', border: '1px solid #E2E8F0' }}>#{vocab.frequency_rank}</span>
+                  {/* All Meanings */}
+                  {(cleanMeanings.length > 0 || vocab.meaning_ai) && (
+                    <div>
+                      <h4 className="text-secondary font-bold mb-3" style={{ textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.1em' }}>Definitions</h4>
+                      <ol style={{ paddingLeft: '20px', fontSize: '16px', color: '#1E293B', lineHeight: '1.8', columnCount: cleanMeanings.length > 5 ? 2 : 1, columnGap: '40px' }}>
+                        {cleanMeanings.length > 0 ? cleanMeanings.map((d: any, i: number) => (
+                          <li key={i} style={{ breakInside: 'avoid', marginBottom: '8px', paddingLeft: '8px' }}>{d.meaning || d}</li>
+                        )) : (
+                          <li style={{ paddingLeft: '8px' }}>{vocab.meaning_ai} <span className="badge-purple" style={{ fontSize: '10px', marginLeft: '6px' }}>AI Generated</span></li>
+                        )}
+                      </ol>
                     </div>
                   )}
 
                   {/* Example Sentence */}
                   {vocab.sentences && vocab.sentences.length > 0 && vocab.sentences[0] && (
                     <div>
-                      <h4 className="text-secondary font-bold mb-3" style={{ textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.1em' }}>Example Sentence</h4>
-                      <div style={{ backgroundColor: '#F8FAFC', padding: '16px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
-                        <div className="flex justify-between items-start">
-                          <p className="chinese-text" style={{ fontSize: '18px', color: '#0F172A', lineHeight: 1.6 }}>{vocab.sentences[0].chinese}</p>
-                          <button onClick={() => playAudio(vocab.sentences[0].chinese)} className="text-brand hover-scale" style={{ background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, padding: '4px' }}><Volume2 size={16} /></button>
+                      <h4 className="text-secondary font-bold mb-3" style={{ textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.1em' }}>Example Sentence</h4>
+                      <div className="hover-lift" style={{ backgroundColor: '#FFFFFF', padding: '20px', borderRadius: '12px', borderLeft: '4px solid #4F46E5', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                        <div className="flex justify-between items-start mb-2">
+                          <p className="chinese-text" style={{ fontSize: '20px', color: '#0F172A', lineHeight: 1.6, fontWeight: 500 }}>{vocab.sentences[0].chinese}</p>
+                          <button onClick={() => playAudio(vocab.sentences[0].chinese)} className="text-primary hover-scale" style={{ background: '#EEF2FF', border: 'none', cursor: 'pointer', flexShrink: 0, padding: '8px', borderRadius: '50%' }}><Volume2 size={16} /></button>
                         </div>
-                        {vocab.sentences[0].pinyin && <p className="text-brand mt-1" style={{ fontSize: '14px' }}>{vocab.sentences[0].pinyin}</p>}
-                        <p className="text-secondary mt-1" style={{ fontSize: '14px' }}>{vocab.sentences[0].english}</p>
+                        {vocab.sentences[0].pinyin && <p className="text-primary font-medium" style={{ fontSize: '15px', marginBottom: '4px' }}>{vocab.sentences[0].pinyin}</p>}
+                        <p className="text-secondary" style={{ fontSize: '15px' }}>{vocab.sentences[0].english}</p>
                       </div>
                     </div>
                   )}
@@ -352,13 +360,15 @@ export const Dictionary: React.FC = () => {
                   {/* Compounds */}
                   {vocab.compounds && vocab.compounds.length > 0 && vocab.compounds[0] && (
                     <div>
-                      <h4 className="text-secondary font-bold mb-3" style={{ textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.1em' }}>Related Compounds</h4>
-                      <div className="flex gap-2 flex-wrap">
+                      <h4 className="text-secondary font-bold mb-3" style={{ textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.1em' }}>Related Compounds</h4>
+                      <div className="flex gap-3 flex-wrap">
                         {vocab.compounds.slice(0, 6).map((comp: any, i: number) => (
-                          <div key={i} style={{ padding: '8px 14px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                            <span className="font-bold chinese-text" style={{ fontSize: '16px' }}>{comp.simplified}</span>
-                            <span className="text-secondary" style={{ fontSize: '12px', marginLeft: '6px' }}>{comp.pinyin}</span>
-                            {comp.english && <span className="text-secondary" style={{ fontSize: '11px', marginLeft: '6px' }}>({comp.english})</span>}
+                          <div key={i} className="flex-col hover-scale" style={{ padding: '12px 16px', backgroundColor: '#FFFFFF', borderRadius: '10px', border: '1px solid #E2E8F0', flex: '1 1 calc(33.333% - 12px)', minWidth: '180px', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-bold chinese-text" style={{ fontSize: '18px', color: '#1E293B' }}>{comp.simplified}</span>
+                              <span className="text-secondary font-medium" style={{ fontSize: '13px' }}>{comp.pinyin}</span>
+                            </div>
+                            {comp.english && <span className="text-secondary" style={{ fontSize: '13px', lineHeight: 1.4 }}>{comp.english}</span>}
                           </div>
                         ))}
                       </div>
@@ -367,14 +377,16 @@ export const Dictionary: React.FC = () => {
 
                   {/* Characters */}
                   {vocab.characters && vocab.characters.length > 0 && vocab.characters[0] && (
-                    <div>
-                      <h4 className="text-secondary font-bold mb-3" style={{ textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.1em' }}>Character Breakdown</h4>
-                      <div className="flex gap-3 flex-wrap">
+                    <div style={{ marginTop: '8px' }}>
+                      <h4 className="text-secondary font-bold mb-3" style={{ textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.1em' }}>Character Breakdown</h4>
+                      <div className="flex gap-4 flex-wrap">
                         {vocab.characters.map((c: any, i: number) => (
-                          <div key={i} className="flex-col items-center" style={{ padding: '12px 16px', backgroundColor: '#F8FAFC', borderRadius: '10px', border: '1px solid #E2E8F0', minWidth: '90px' }}>
-                            <span className="chinese-text font-bold" style={{ fontSize: '28px' }}>{c.character}</span>
-                            <span className="text-secondary" style={{ fontSize: '11px', marginTop: '4px' }}>Radical: {c.radical}</span>
-                            <span className="text-secondary" style={{ fontSize: '11px' }}>{c.stroke_count} strokes</span>
+                          <div key={i} className="flex items-center gap-4" style={{ padding: '12px 20px', backgroundColor: '#FFFFFF', borderRadius: '10px', border: '1px solid #E2E8F0', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
+                            <span className="chinese-text font-bold text-brand" style={{ fontSize: '32px', lineHeight: 1 }}>{c.character}</span>
+                            <div className="flex-col">
+                              <span className="text-secondary font-medium" style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Radical: {c.radical}</span>
+                              <span className="text-secondary" style={{ fontSize: '13px', marginTop: '2px' }}>{c.stroke_count} strokes</span>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -383,14 +395,15 @@ export const Dictionary: React.FC = () => {
 
                   {/* Skeleton Loading State */}
                   {vocab._aiLoading && (
-                    <div className="animate-pulse" style={{ paddingTop: '16px', borderTop: '1px solid #F1F5F9' }}>
-                      <div style={{ height: '14px', width: '30%', backgroundColor: '#E2E8F0', borderRadius: '4px', marginBottom: '12px' }}></div>
+                    <div className="animate-pulse" style={{ padding: '24px', backgroundColor: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '16px' }}>
+                      <div className="flex items-center gap-3 mb-4">
+                        <div style={{ height: '24px', width: '24px', backgroundColor: '#E2E8F0', borderRadius: '50%' }}></div>
+                        <div style={{ height: '14px', width: '40%', backgroundColor: '#E2E8F0', borderRadius: '4px' }}></div>
+                      </div>
                       <div style={{ height: '60px', width: '100%', backgroundColor: '#F8FAFC', borderRadius: '8px', marginBottom: '16px' }}></div>
-                      <div style={{ height: '14px', width: '40%', backgroundColor: '#E2E8F0', borderRadius: '4px', marginBottom: '12px' }}></div>
-                      <div className="flex gap-2">
-                        <div style={{ height: '36px', width: '100px', backgroundColor: '#F8FAFC', borderRadius: '8px' }}></div>
-                        <div style={{ height: '36px', width: '100px', backgroundColor: '#F8FAFC', borderRadius: '8px' }}></div>
-                        <div style={{ height: '36px', width: '100px', backgroundColor: '#F8FAFC', borderRadius: '8px' }}></div>
+                      <div className="flex gap-3">
+                        <div style={{ height: '40px', width: '30%', backgroundColor: '#F8FAFC', borderRadius: '8px' }}></div>
+                        <div style={{ height: '40px', width: '30%', backgroundColor: '#F8FAFC', borderRadius: '8px' }}></div>
                       </div>
                     </div>
                   )}

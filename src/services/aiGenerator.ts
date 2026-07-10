@@ -3,6 +3,7 @@ import Groq from 'groq-sdk';
 
 interface ExtraDetails {
   pos: string | null;
+  meaning: string | null;
   sentence: { chinese: string; pinyin: string; english: string } | null;
   compounds: { simplified: string; pinyin: string; english: string }[] | null;
 }
@@ -21,13 +22,19 @@ const parseJSON = (str: string) => {
 };
 
 export const getExtraDetails = async (vocab: any): Promise<ExtraDetails> => {
-  // 1. Tier 1: Check Database (already populated in vocab object from flashcard_view)
   const hasDbSentence = vocab.sentences && vocab.sentences.length > 0 && vocab.sentences[0];
   const hasDbCompounds = vocab.compounds && vocab.compounds.length > 0 && vocab.compounds[0];
 
-  if (hasDbSentence && hasDbCompounds) {
+  const validMeanings = (vocab.meanings || []).filter((m: any) => {
+    const text = typeof m === 'string' ? m : m.meaning;
+    return text && !text.includes('variant of') && !text.includes('erhua variant');
+  });
+  const needsMeaning = validMeanings.length === 0;
+
+  if (hasDbSentence && hasDbCompounds && !needsMeaning) {
     return {
       pos: null,
+      meaning: null,
       sentence: vocab.sentences[0],
       compounds: vocab.compounds
     };
@@ -47,18 +54,20 @@ export const getExtraDetails = async (vocab: any): Promise<ExtraDetails> => {
   const apiKey = localStorage.getItem('lingua_groq_key');
   if (!apiKey) {
     console.warn("No Groq API Key found. Skipping generation.");
-    return { pos: null, sentence: null, compounds: null };
+    return { pos: null, meaning: null, sentence: null, compounds: null };
   }
 
   const groq = new Groq({ apiKey, dangerouslyAllowBrowser: true });
 
-  const prompt = `You are a Chinese lexicographer API.
+const prompt = `You are a Chinese lexicographer API.
 Generate 1 highly contextual example sentence and exactly 3 common compound words containing the character/word "${vocab.simplified}" (${vocab.pinyin}).
+Also provide a concise English meaning (max 5-6 words) and the Part of Speech.
 The target HSK level is ${vocab.hsk_level}. Ensure the sentence is comprehensible for this level.
 
 Respond ONLY with valid JSON in this exact structure:
 {
   "pos": "Noun", // or Verb, Adjective, etc.
+  "meaning": "Concise English definition",
   "sentence": {
     "chinese": "...",
     "pinyin": "...",
@@ -110,5 +119,5 @@ Respond ONLY with valid JSON in this exact structure:
     console.error("AI Generation error:", err);
   }
 
-  return { pos: null, sentence: null, compounds: null };
+  return { pos: null, meaning: null, sentence: null, compounds: null };
 };
